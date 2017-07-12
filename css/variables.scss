@@ -1,0 +1,20 @@
+@import url('https://fonts.googleapis.com/css?family=Bellefair');
+$font-stack: Bellefair, sans-serif;
+$fa-font-path:   "../font-awesome/fonts";
+
+
+// Color code
+$background-color: rgb(248, 248, 255);
+$scrabble-red: rgb(179, 0, 0);
+$board-background: rgb(255, 253, 253);
+$border-color: rgba(25, 25, 12, 0.9);
+$center-square-color: rgb(255, 228, 181);
+// $tile-color: #edd9c0;
+// $tile-color: #ddb788;
+$tile-color: #e3c39c;
+
+// bonus square colors
+$color-l2: rgba(176, 196, 222, 0.7);
+$color-l3: rgba(0, 0, 133, 0.7);
+$color-w2: rgba(255, 182, 193, 0.7);
+$color-w3: rgba(205, 92, 92, 0.7);

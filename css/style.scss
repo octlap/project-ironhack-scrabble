@@ -1,0 +1,250 @@
+/* Import Reset and Variables*/
+@import 'reset';
+@import 'variables';
+
+// Set font properties
+body {
+  font-family: $font-stack;
+  font-size: 10px;
+  background-color: $background-color;
+}
+
+// TITLE AND NAV
+nav {
+  width: 100%;
+  padding-top: 25px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background-color: $background-color;
+
+  h1 {
+    display: block;
+    font-size: 3.2rem;
+    font-weight: 500;
+    border: solid 1.5px $scrabble-red;
+    border-radius: 6px;
+    padding: 10px 40px;
+  }
+}
+
+// MAIN GAME AREA
+#game-area {
+  width: 100%;
+  background-color: $background-color;
+  height: 550px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .player-area {
+    height: 500px;
+    width: 30%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+
+    .player-name {
+      font-size: 2rem;
+      text-align: center;
+      font-weight: 500;
+      margin-bottom: 30px;
+    }
+
+    .tray {
+      // width: 80%;
+      border: solid 1px $scrabble-red;
+      border-radius: 6px;
+      padding: 10px 10px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      margin-bottom: 20px;
+
+      .tray-square {
+        height: 35px;
+        width: 35px;
+        border: dotted 0.7px $border-color;
+        border-radius: 3px;
+        margin: 0 5px;
+        font-size: 1.7rem;
+        font-weight: 500;
+        text-align: center;
+        padding-top: 5px;
+        cursor: default;
+      }
+
+      .tray-square.with-tile {
+        background-color: $tile-color;
+      }
+    }
+
+    .score {
+      text-align: center;
+      margin-bottom: 5px;
+      font-size: 1.7rem;
+      font-weight: 500;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      .action-button {
+        border: solid 1px $border-color;
+        border-radius: 3px;
+        padding: 10px;
+        font-size: 1.4rem;
+        margin: 0 10px;
+        cursor: default;
+      }
+    }
+
+  }
+
+  #board {
+    width: 500px;
+    height: 500px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border: solid 0.7px $border-color;
+    border-radius: 3px;
+    padding-left: 0.5px;
+
+
+    .row {
+      height: 6.6667%;
+      width: 100%;
+      display: flex;
+      justify-content: space-around;
+
+      .square {
+        height: 100%;
+        width: 6.7%;
+        border-bottom: solid 0.7px $border-color;
+        border-right: solid 0.7px $border-color;
+        text-align: center;
+        font-size: 1.5rem;
+        padding-top: 6px;
+        background-color: $board-background;
+        cursor: default;
+      }
+
+      .square.center {
+        background-color: $center-square-color;
+      }
+
+      .square.right {
+        border-right: none;
+      }
+
+      .square.bottom {
+        border-bottom: none;
+      }
+
+      .square.l2 {
+        background-color: $color-l2;
+        color: white;
+        font-size: 1rem;
+        padding-top: 10px;
+      }
+
+      .square.l3 {
+        background-color: $color-l3;
+        color: white;
+        font-size: 1rem;
+        padding-top: 10px;
+      }
+
+      .square.w2 {
+        background-color: $color-w2;
+        color: white;
+        font-size: 1rem;
+        padding-top: 10px;
+      }
+
+      .square.w3 {
+        background-color: $color-w3;
+        color: white;
+        font-size: 1rem;
+        padding-top: 10px;
+      }
+      .square.with-tile {
+        background-color: $tile-color;
+        color: black;
+        font-size: 1.5rem;
+        padding-top: 6px;
+        border: solid 1.2px $border-color;
+      }
+    }
+  }
+}
+
+
+// MESSAGE AREA
+
+#message-area {
+  background-color: $background-color;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 0;
+
+  .tile-deck {
+    height: 80px;
+    width: 80px;
+    border: dotted 0.7px $border-color;
+    border-radius: 3px;
+    margin: 0 57px;
+    font-size: 3rem;
+    font-weight: 500;
+    text-align: center;
+    padding-top: 18px;
+    cursor: default;
+    align-self: flex-start;
+  }
+
+  .tile-deck.with-tile {
+    background-color: $tile-color;
+  }
+
+  .message-screen {
+    width: 50%;
+    height: 150px;
+    // border: solid 0.7px $border-color;
+    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+
+    #message {
+      display: block;
+      height: 50%;
+      width: 70%;
+      text-align: center;
+      font-size: 1.6rem;
+      padding: 15px 10px 0;
+    }
+
+    #user-input {
+      background: transparent;
+      display: block;
+      width: 60%;
+      border: dotted 0.7px $border-color;
+      border-radius: 3px;
+      font-size: 1.6rem;
+      text-align: center;
+    }
+
+    #user-input:focus {
+      border: solid 1px black;
+    }
+  }
+
+}
