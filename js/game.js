@@ -35,11 +35,19 @@ function Game() {
     this.players = [];
     this.status = 'setup';
     this.turn = 0;
-    this.whosTurn;
+    this.whoseTurn = null;
+    this.selectedTile = null;
     this.wordOnDeck = {
       tiles: [],
-      positions: []
+      positions: [],
+      wordsToScore: [],
+      direction: null,
+      mainFirst: null, // first letter of main word
+      mainLast: null, // first letter of main word
+      hookWords: null
     };
+
+    this.playerOrder = ['left', 'right'];
 
 }
 
@@ -56,14 +64,17 @@ Game.prototype.runGame = function () {
     break;
 
     case 'switching-turns':
-    setTimeout(this.runTurn(), 500)
+    setTimeout(this.switchTurns(), 500)
     break;
 
-    case 'verifying-word':
+    case 'awaiting-input':
+    this.receiveInput();
+    break;
+
+    case 'validating-play':
     $('#message').html('Verifying word...<br><br><i class="fa fa-clock-o" aria-hidden="true"></i>');
-
+    setTimeout(this.validatePlay(), 500);
     break;
-
 
   }
 
@@ -88,7 +99,7 @@ Game.prototype.setupGame = function() {
         var n = that.players.length + 1;
 
         //store player's name
-        that.players.push( new Player( $('#user-input').val(), n ) );
+        that.players.push( new Player( $('#user-input').val(), n, that.playerOrder[n-1] ) );
 
         // Display player's name
         $('.player-name.player-' + (that.players.length) ).html(_.last(that.players).name);
@@ -101,7 +112,8 @@ Game.prototype.setupGame = function() {
 
         } else { // else start game!
           $('#message').html('LET\'S PLAY SCRABBLE!!!' );
-          that.status = 'begin'; that.runGame();
+          that.status = 'begin';
+          that.runGame();
         }
       }
     });
@@ -116,6 +128,9 @@ Game.prototype.beginGame = function () {
   // Shuffle tiles
   $('#message').html('Shuffling tiles in the bag...<br><br><i class="fa fa-clock-o" aria-hidden="true"></i>');
   this.bag.shuffleTiles();
+
+  // Determine who begins -- for now player 1 by default
+  this.whoseTurn = 0; // Player 1 by default
 
   // update game status
   this.status = 'switching-turns';
@@ -141,43 +156,71 @@ Game.prototype.distributeTiles = function (thisPlayer) {
   this.players[i].loadTiles( this.bag.drawTiles(tileNum) );
 
   // render player with a slight delay
-  setTimeout(this.players[i].render(), 300);
+  setTimeout(this.players[i].renderTray(), 300);
 
 };
 
 
 // Game has a method that runs a turn in the the game
-Game.prototype.runTurn = function () {
+Game.prototype.switchTurns = function () {
+
+  var that = this;
 
   if (this.turn == 0) {
 
     // special case if first turn, by default player 1 plays first
     this.turn += 1;
-    this.whosTurn = this.players[0];
     $('#message').html('Distributing tiles...<br><br><i class="fa fa-clock-o" aria-hidden="true"></i>');
-    var that = this;
     setTimeout(function() {
       that.distributeTiles(that.players[0]);
       that.distributeTiles(that.players[1]);
       $('.score-box').show();
-      $('.player-1-controls').show(); //Update to integrate change first player
-      $('#message').html(that.players[0].name + '\'s turn to play<br><br><i class="fa fa-chevron-left" aria-hidden="true"></i>');
-      that.receiveInput(that.players[0]);
+      $('.controls.player-' + that.players[that.whoseTurn].n ).show(); //Update to integrate change first player
+      // $('#message').html(that.players[that.players[that.whoseTurn]].name + '\'s turn to play<br><br><i class="fa fa-chevron-' + that.players[that.whoseTurn].side +'" aria-hidden="true"></i>');
+      that.status = 'awaiting-input';
+      that.runGame();
     }, 300);
-  } else {
-    this.turn +=1
-    //general case HERE, generalize from above
-  }
 
+    // general case
+  } else {
+    this.turn += 1; // increment turn
+    this.distributeTiles(this.players[this.whoseTurn]); // distribute tiles to player who just playerd
+
+    // reset selected tile
+    this.selectedTile = null;
+    this.wordOnDeck = {
+      tiles: [],
+      positions: [],
+      wordsToScore: [],
+      direction: null,
+      mainFirst: null, // first letter of main word
+      mainLast: null, // first letter of main word
+      hookWords: null
+    };
+
+    // Switch turns
+    $('.controls.player-' + this.players[this.whoseTurn].n ).hide();
+    this.whoseTurn = this.whoseTurn == 0 ? 1:0;
+
+
+    // Go to collect input from next player
+    setTimeout(function() {
+      that.status = 'awaiting-input';
+      that.runGame();
+    }, 300);
+  }
 
 };
 
 //Game has a method to receive an input from a designated player
-Game.prototype.receiveInput = function (player) {
+Game.prototype.receiveInput = function () {
 
-  var selectedTile = null;
+  //Message to ask for input
+  $('.controls.player-' + this.players[this.whoseTurn].n ).show();
+  $('#message').html(this.players[this.whoseTurn].name + '\'s turn to play<br><br><i class="fa fa-chevron-' + this.players[this.whoseTurn].side +'" aria-hidden="true"></i>');
+
+  // var selectedTile = null;
   var that = this;
-
 
   // Event listener for clicking on a tile given player's tray, if
   // if it's given player's turn
@@ -186,17 +229,19 @@ Game.prototype.receiveInput = function (player) {
 
   // => adds tile to selectedTile, clears tray object, renders tray
 
-  $('.tray-square.player-' +  player.n).click( function(e) {
+  $('.tray-square.player-' +  this.players[this.whoseTurn].n).click( function(e) {
 
     var n = e.currentTarget.className.includes('player-1') ? 1:2;
 
-    if (that.whosTurn.n == 1 && // if it's given player's turn
-        e.currentTarget.className.includes('with-tile') && // tray square contains a tile
-        selectedTile == null) { // user has not already selected a tile
+    if (that.players[that.whoseTurn].n == n &&
+        e.currentTarget.className.includes('with-tile')
+        && that.selectedTile == null &&
+        that.status == 'awaiting-input') {
 
-      selectedTile = player.drawTile( $(e.currentTarget).index() ); //draws tile from player and loads to selectedTile
-      $('.tile-deck.player-' +  player.n).html(selectedTile.letter);
-      $('.tile-deck.player-' +  player.n).addClass('with-tile');
+      that.selectedTile = that.players[that.whoseTurn].drawTile( $(e.currentTarget).index() ); //draws tile from player and loads to selectedTile
+      $('.tile-deck.player-' +  that.players[that.whoseTurn].n).addClass('with-tile');
+      $('.tile-deck.player-' +  that.players[that.whoseTurn].n + ' .letter').html(that.selectedTile.letter);
+      $('.tile-deck.player-' + that.players[that.whoseTurn].n + ' .points').html(that.selectedTile.points);
       var test = 0;
     }
   });
@@ -210,58 +255,70 @@ Game.prototype.receiveInput = function (player) {
 
   $('.square').click( function(e) {
 
-    if (selectedTile !== null && // user has already selected a tile
-        !e.currentTarget.className.includes('with-tile') ) // target square on board is empty
+    if (that.selectedTile !== null &&
+        !e.currentTarget.className.includes('with-tile') &&
+        that.status == 'awaiting-input') {
 
       var i = $(e.currentTarget.parentElement).index(); // i coordinate of selected tile
       var j = $(e.currentTarget).index() // j coordinate of selected tile
 
-      $(e.currentTarget).html(selectedTile.letter); // adds letter square
+      // Adds tile to board
+      if (i == 7 && j == 7) $(e.currentTarget).children('i').remove(); // special case for center square, remove star
+      $(e.currentTarget).children('.bonus').remove();
       $(e.currentTarget).addClass('with-tile'); // adds the with tile styling
-      $('.tile-deck.player-' +  player.n).html(''); //reset tile-deck
-      $('.tile-deck.player-' +  player.n).removeClass('with-tile');
+      $(e.currentTarget).children('.letter').html(that.selectedTile.letter); // adds letter square
+      $(e.currentTarget).children('.points').html(that.selectedTile.points);
 
 
-      that.wordOnDeck.tiles.push(selectedTile); // load tile and positions to word on deck
+      // Removes tile from deck
+      $('.tile-deck.player-' +  that.players[that.whoseTurn].n).removeClass('with-tile');
+      $('.tile-deck.player-' +  that.players[that.whoseTurn].n + ' .letter').html('');
+      $('.tile-deck.player-' + that.players[that.whoseTurn].n + ' .points').html('');
+
+
+      that.wordOnDeck.tiles.push(that.selectedTile); // load tile and positions to word on deck
       that.wordOnDeck.positions.push( {i: i, j:j});
 
-      selectedTile = null; // clear selected tile
+      that.selectedTile = null; // clear selected tile
+    }
 
   });
 
 
   //Event listener on Submit button
   // ==> updates game status to verify input, goes to run game
-  $('.submit.player-' +  player.n).click( function(e) {
+  $('.submit.player-' +  this.players[this.whoseTurn].n).click( function(e) {
 
-    that.status = 'verifying-word';
-    that.runGame();
-
+    if(that.status == 'awaiting-input') {
+      that.status = 'validating-play';
+      that.runGame();
+    }
 
   });
 
 
 
-
-
   //Event listner on Delete button
   // ==> clears all newly placed tiles, clears word on deck, places them back in tray  (NICE TO HAVE)
-  $('.delete.player-' +  player.n).click( function(e) {
+  $('.delete.player-' +  this.players[this.whoseTurn].n).click( function(e) {
 
+    if(that.status == 'awaiting-input') {
+      if (that.selectedTile == null) { // after placing a letter
+        that.players[that.whoseTurn].loadTiles(that.wordOnDeck.tiles); // places tiles back in tray and renders board
+        that.board.render();
+        that.wordOnDeck = { //resets word on deck
+          tiles: [],
+          positions: []
+        };
 
-    if (selectedTile == null) { // after placing a letter
-      player.loadTiles(that.wordOnDeck.tiles); // places tiles back in tray and renders board
-      that.board.render();
-      that.wordOnDeck = { //resets word on deck
-        tiles: [],
-        positions: []
-      };
-
-    } else { // mid placing a letter
-      $('.tile-deck.player-' +  player.n).html(''); //reset tile-deck
-      $('.tile-deck.player-' +  player.n).removeClass('with-tile');
-      player.loadTiles([selectedTile]);
-      selectedTile = null;
+      } else { // mid placing a letter
+        $('.tile-deck.player-' +  that.players[that.whoseTurn].n).removeClass('with-tile');
+        $('.tile-deck.player-' +  that.players[that.whoseTurn].n + ' .letter').html('');
+        $('.tile-deck.player-' + that.players[that.whoseTurn].n + ' .points').html('');
+        that.board.render();
+        that.players[that.whoseTurn].loadTiles([that.selectedTile]);
+        that.selectedTile = null;
+      }
     }
 
   });
@@ -270,76 +327,164 @@ Game.prototype.receiveInput = function (player) {
 };
 
 
+// Game has a function to reset tiles placed on Board
+Game.prototype.resetTiles = function () {
+
+  this.players[this.whoseTurn].loadTiles(this.wordOnDeck.tiles); // places tiles back in tray and renders board
+  this.board.render();
+  this.wordOnDeck = { //resets word on deck
+    tiles: [],
+    positions: []
+  }
+
+  // clears selectedTile if necessary
+  if (this.selectedTile !== null) {
+    $('.tile-deck.player-' +  that.players[that.whoseTurn].n).removeClass('with-tile');
+    $('.tile-deck.player-' +  that.players[that.whoseTurn].n + ' .letter').html('');
+    $('.tile-deck.player-' + that.players[that.whoseTurn].n + ' .points').html('');
+    player.loadTiles([this.selectedTile]);
+  }
+
+};
+
+
+// Game has a method that verifies a word's:
+//- position
+//- if it's the scrabble dictionary
+Game.prototype.validatePlay = function () {
+
+  var that = this;
+  conditionsToBeMet = [];
+
+
+  // 1) TEST POSITION OF WORD
+  // if first first turn, word must cover center square
+  if (this.turn == 1) {
+    if ( _.findIndex(this.wordOnDeck.positions, {i: 7, j:7}) < 0 ) {
+      conditionsToBeMet.push(false);
+    } else {
+      conditionsToBeMet.push(true);
+    }
+
+
+  // in all other cases, word cannot be "floating", needs at least one adjacent tile
+  } else {
+    var numAdjacentTiles = _.reduce(this.wordOnDeck.positions, function (result, p) {
+      return result + that.board.hasAdjacentTiles(p);
+    }, true);
+    conditionsToBeMet.push( numAdjacentTiles > 0 ? true:false);
+  }
+
+  // Regardless of turn, tiles placed must be on same line
+  conditionsToBeMet.push(this.board.isOnOneLine(this.wordOnDeck.positions));
+
+  // It must also form a continuous word
+  // First determine word direction -- by default horizonal (e.g. when a single tile is placed in a corner)
+  // And get first main first and last letters (combining with any previously played tiles)
+  // Then check continuity
+  this.wordOnDeck.direction = this.board.isHorizontal(this.wordOnDeck.positions) ? 'h' : 'v';
+  [this.wordOnDeck.mainFirst, this.wordOnDeck.mainLast] = this.board.getMain(this.wordOnDeck);
+
+  var continuous = false;
+  switch(this.wordOnDeck.direction) {
+
+    // First/last of the newly placed tiles cannot be before/after pimary first/last
+    case 'h':
+    continuous = _.minBy(this.wordOnDeck.positions, 'j').j >= this.wordOnDeck.mainFirst.j && _.maxBy(this.wordOnDeck.positions, 'j').j <= this.wordOnDeck.mainLast.j;
+    break;
+
+    case 'v':
+    continuous = _.minBy(this.wordOnDeck.positions, 'i').i >= this.wordOnDeck.mainFirst.i && _.maxBy(this.wordOnDeck.positions, 'i').i <= this.wordOnDeck.mainLast.i;
+    break;
+  }
+  conditionsToBeMet.push(continuous);
+
+  //////////////////////////////////////////////////////////////////////////////////
+  // Check if all conditions have been met thus far, otherwise return position error
+  if ( !_.reduce(conditionsToBeMet, function(product, e) {return product * e}, true) ) {
+
+    this.status = 'awaiting-input';
+    $('#message').html('Position of word is not valid. Please try again.');
+    setTimeout( function() {
+      that.resetTiles();
+      that.runGame();
+    }, 1500);
+  } else {
+
+    // 2) TEST VALIDITY OF WORDS
+    // Identify hookwords
+    // Then store main word and any potential hook words in a vector of strings
+    // Then check all words in vector
+    this.wordOnDeck.hookWords = this.board.getHookWords(this.wordOnDeck);
+
+    var wordsToTest = [];
+
+    // first add primary word
+    wordsToTest.push(this.board.getWord(this.wordOnDeck, this.wordOnDeck.mainFirst, this.wordOnDeck.mainLast, this.wordOnDeck.direction));
+
+    // then loop through hookWords
+    for (var n = 0; n < this.wordOnDeck.hookWords.length; n++) {
+      wordsToTest.push(this.board.getWord(this.wordOnDeck, this.wordOnDeck.hookWords[n].first, this.wordOnDeck.hookWords[n].last, this.wordOnDeck.hookWords[n].direction));
+    }
+
+    // finally test validity of each word
+    var wordValidityTests = [];
+    for (var n = 0; n < wordsToTest.length; n++) {
+      wordValidityTests.push(this.isWord(wordsToTest[n]));
+    }
+
+    var result = _.reduce(wordValidityTests, function(result, e) {
+      return result * e;
+    }, true);
+
+    conditionsToBeMet.push(result);
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // Check if all conditions have been met thus far, otherwise return position error
+    if ( !_.reduce(conditionsToBeMet, function(product, e) {return product * e}, true) ) {
+
+      this.status = 'awaiting-input';
+      $('#message').html('Invalid word(s). Please try again.');
+      setTimeout( function() {
+        that.resetTiles();
+        that.runGame();
+      }, 1500);
+    } else {
+      // 3) IF ALL THE WAY HERE, SCORE WORDS
+      // first place word on deck
+      this.board.place(this.wordOnDeck, this.players[this.whoseTurn],  this.turn);
+      test = 0;
+
+      // then score main word + potential hookWords
+      var mainWordPoints = this.board.score(this.wordOnDeck.mainFirst, this.wordOnDeck.mainLast, this.wordOnDeck.direction, this.turn);
+      var hookWordPoints = 0;
+      for (var n = 0; n < this.wordOnDeck.hookWords.length; n++) {
+        hookWordPoints += this.board.score(this.wordOnDeck.hookWords[n].first, this.wordOnDeck.hookWords[n].last, this.wordOnDeck.hookWords[n].direction, this.turn)
+      }
+
+      // Sum total score including Scrabble Bonus
+      var scrabbleBonus = (this.wordOnDeck.tiles.length == 7) ? 50 : 0;
+      var totalPoints = mainWordPoints + hookWordPoints + scrabbleBonus
+
+      setTimeout (function() {
+        that.players[that.whoseTurn].updateScore(totalPoints, that.wordOnDeck.tiles.length);
+        $('#message').html(that.players[that.whoseTurn].name + ' scores ' + totalPoints + ' points!');
+        that.status = 'switching-turns';
+        that.runGame();
+      }, 1000);
+
+    }
+  }
 
 
 
 
+};
 
-
-
-
-
-
-
-
-
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-/////// TESTS /////////////
-
-// board.grid[7][6] = {letter: 'O', points: 1, placedBy: '', turnPlaced: 0};
-// board.grid[7][7] = {letter: 'C', points: 3, placedBy: '', turnPlaced: 0};
-// board.grid[7][8] = {letter: 'T', points: 1, placedBy: '', turnPlaced: 0};
-// board.grid[7][9] = {letter: 'A', points: 1, placedBy: '', turnPlaced: 0};
-// board.grid[7][10] = {letter: 'V', points: 4, placedBy: '', turnPlaced: 0};
-// board.grid[7][11] = {letter: 'E', points: 1, placedBy: '', turnPlaced: 0};
-//
-//
-// board.grid[2][9] = {letter: 'I', points: 1, placedBy: '', turnPlaced: 0};
-// board.grid[3][9] = {letter: 'R', points: 1, placedBy: '', turnPlaced: 0};
-// board.grid[4][9] = {letter: 'O', points: 1, placedBy: '', turnPlaced: 0};
-// board.grid[5][9] = {letter: 'N', points: 1, placedBy: '', turnPlaced: 0};
-// board.grid[6][9] = {letter: 'H', points: 4, placedBy: '', turnPlaced: 0};
-// // board.grid[7][9] = 'A';
-// board.grid[8][9] = {letter: 'C', points: 3, placedBy: '', turnPlaced: 0};
-// board.grid[9][9] = {letter: 'K', points: 5, placedBy: '', turnPlaced: 0};
-//
-// // board.printBoard();
-//
-// // vertical test
-// var testWord = [
-//   {letter: 'E', points: 1, placedBy: '', turnPlaced: null},
-//   {letter: 'R', points: 1, placedBy: '', turnPlaced: null},
-//   {letter: 'S', points: 1, placedBy: '', turnPlaced: null}
-// ];
-//
-// var testPositions = [
-//   {i: 10, j: 9},
-//   {i: 11, j: 9},
-//   {i: 12, j: 9}
-// ];``
-
-// horizontal test
-// var testWord = [
-//   {letter: 'R', points: 1, placedBy: '', turnPlaced: null},
-//   {letter: 'S', points: 1, placedBy: '', turnPlaced: null}
-// ];
-//
-// var testPositions = [
-//   {i: 7, j: 12},
-//   {i: 7, j: 13}
-// ];
-
-
-//
-
-// var points = board.play(testWord, testPositions, 1);
+// Board has method that returns true/false if word is contained in dictionary
+Game.prototype.isWord = function () {
+  return true;
+  //find API, maybe through:
+  //http://scrabblewordfinder.org/dictionary-checker
+  //or https://scrabble.hasbro.com/en-us/tools
+};

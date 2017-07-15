@@ -45,11 +45,18 @@ nav {
     justify-content: space-between;
     align-items: center;
 
-    .player-name {
-      font-size: 2rem;
-      text-align: center;
-      font-weight: 500;
-      margin-bottom: 30px;
+    .name-score {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+
+      .player-name {
+        font-size: 2rem;
+        text-align: center;
+        font-weight: 500;
+        margin-bottom: 30px;
+      }
     }
 
     .tray {
@@ -68,11 +75,28 @@ nav {
         border: dotted 0.7px $border-color;
         border-radius: 3px;
         margin: 0 5px;
-        font-size: 1.7rem;
+        font-size: 1.4rem;
         font-weight: 500;
         text-align: center;
-        padding-top: 5px;
+        padding-top: 7px;
         cursor: default;
+
+        .letter {
+          display: block;
+          position: relative;
+          right: 3px;
+        }
+
+        .points {
+          display: block;
+          position: relative;
+          font-size: 0.47em;
+          font-weight: 500;
+          left: 11px;
+          bottom: 8px;
+          padding: 0;
+          margin: 0;
+        }
       }
 
       .tray-square.with-tile {
@@ -128,10 +152,31 @@ nav {
         border-bottom: solid 0.7px $border-color;
         border-right: solid 0.7px $border-color;
         text-align: center;
-        font-size: 1.5rem;
-        padding-top: 6px;
+        font-size: 1.4rem;
+        padding-top: 7px;
         background-color: $board-background;
         cursor: default;
+
+        .letter {
+          display: block;
+          position: relative;
+          right: 2px;
+          margin: 0;
+          bottom: 2px;
+          right: 2px;
+        }
+
+        .points {
+          display: block;
+          position: relative;
+          font-size: 0.5em;
+          font-weight: 500;
+          left: 10px;
+          bottom: 10px;
+          padding: 0;
+          margin: 0;
+        }
+
       }
 
       .square.center {
@@ -207,6 +252,17 @@ nav {
     padding-top: 18px;
     cursor: default;
     align-self: flex-start;
+
+    .points {
+      display: block;
+      position: relative;
+      font-size: 0.42em;
+      font-weight: 500;
+      left: 24px;
+      bottom: 15px;
+      padding: 0;
+      margin: 0;
+    }
   }
 
   .tile-deck.with-tile {
@@ -225,11 +281,12 @@ nav {
 
     #message {
       display: block;
-      height: 50%;
+      height: auto;
       width: 70%;
       text-align: center;
       font-size: 1.6rem;
-      padding: 15px 10px 0;
+      padding: 15px 0px 10px;
+
     }
 
     #user-input {

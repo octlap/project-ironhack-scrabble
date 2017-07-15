@@ -51,7 +51,7 @@ function Board(numPlayers) {
     [null,  null,  null,  null,  'w2',  null,  null,  null,  null,  null,  'w2',  null,  null,  null,  null], // 4
     [null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null], // 5
     [null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null], // 6
-    ['w3',  null,  null,  null,  null,  null,  null,  '*',   null,  null,  null,  null,  null,  null,  'w3'], // 7
+    ['w3',  null,  null,  null,  null,  null,  null,  '*w2', null,  null,  null,  null,  null,  null,  'w3'], // 7
     [null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null], // 8
     [null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null], // 9
     [null,  null,  null,  null,  'w2',  null,  null,  null,  null,  null,  'w2',  null,  null,  null,  null], // 10
@@ -86,85 +86,154 @@ function Board(numPlayers) {
 
 
 // Board has a function that places a word and returns and an error type if not validated
-Board.prototype.play = function (tiles, positions, turn) {
+Board.prototype.getMain = function (wordOnDeck) {
 
-  var that = this; //scope carry
+  // place words on a test grid with only letters
+  var testGrid = this.toLetters();
+  for (var n = 0; n < wordOnDeck.positions.length; n++) {
+    testGrid[wordOnDeck.positions[n].i][wordOnDeck.positions[n].j] = wordOnDeck.tiles[n].letter;
+  }
 
-  // here word should have been tested on availability of grid positions and same line criteria
-  var numTiles = tiles.length;
-
-  // tentatively place words on board for testing
-  for (var n = 0; n < numTiles; n++) { this.grid[positions[n].i][positions[n].j] = tiles [n]; }
-  var letterGrid = this.toLetters();
-
-  // identity direction
-  var wordDirection = this.isHorizontal(positions) ? 'h' : 'v';
-
-  // identify primary word and any crosswords
-  var primaryWord = [];
-  var first; var primaryFirst; var primaryLast;
-  switch (wordDirection) {
+  // identify main word and any hookwords
+  var mainWord = [];
+  var first; var mainFirst; var mainLast;
+  switch (wordOnDeck.direction) {
 
     case 'h':
-      first = _.minBy(positions, 'j'); // first is most to the left
-      var row = letterGrid[first.i]; // isolate row
+      first = _.minBy(wordOnDeck.positions, 'j'); // first is most to the left
+      var row = testGrid[first.i]; // isolate row
 
-      var before = _.take(row, first.j); // takes all letters from left of first of new placed letters
-      primaryFirst = {i: first.i , j: _.lastIndexOf(before, null) + 1}; //isolate position of first letter of primary word
-
-      var after = _.takeRight(row, row.length - first.j); // takes all positions to the right of first of newly places letters
-      primaryLast = {i: first.i, j: _.indexOf(after, null) + first.j - 1}; //isolate position of last letter of primary word
+      var before = _.take(row, first.j + 1); // takes all letters from left of first of new placed letters, incl. first
+      mainFirst = {i: first.i , j: this.findStart(before)}; //isolate position of first letter of main word
+      var after = _.takeRight(row, row.length - first.j); // takes all positions to the right of first of newly places letters, incl first
+      mainLast = {i: first.i, j: this.findEnd(after) + first.j}; //isolate position of last letter of main word
 
     break;
 
     case 'v':
-      first = _.minBy(positions, 'i'); // same as previous case, this time for vertical words
-      var col = _.map(letterGrid, function (e) { return e[first.j] } );
+      first = _.minBy(wordOnDeck.positions, 'i'); // same as previous case, this time for vertical words
+      var col = _.map(testGrid, function (e) { return e[first.j] } );
 
-      var above =  _.take(col, first.i);
-      primaryFirst = {i: _.lastIndexOf(above, null) + 1, j: first.j};
-
+      var above =  _.take(col, first.i + 1);
+      mainFirst = {i: this.findStart(above), j: first.j};
       var below = _.takeRight(col, col.length - first.i);
-      primaryLast = {i: _.indexOf(below, null) + first.i - 1, j: first.j};
+      mainLast = {i: this.findEnd (below) + first.i, j: first.j};
 
     break;
   }
 
-  // Calculate score of the current play
-  return this.scorePlay(primaryFirst, primaryLast, wordDirection, turn);
+  return [mainFirst, mainLast];
+
+};
+
+
+// Board has a method that finds hookwords
+Board.prototype.getHookWords = function (wordOnDeck) {
+
+  numTiles = wordOnDeck.tiles.length;
+  var hookWords =[];
+  var testGrid = this.toLetters();
+  for (var n = 0; n < wordOnDeck.positions.length; n++) {
+    testGrid[wordOnDeck.positions[n].i][wordOnDeck.positions[n].j] = wordOnDeck.tiles[n].letter;
+  }
+
+  for (var n = 0; n < numTiles; n++) { //loop through new placed tiles
+
+    switch (wordOnDeck.direction) {
+
+      case 'h':
+        if (wordOnDeck.positions[n].i > 0 &&this.grid[wordOnDeck.positions[n].i - 1][wordOnDeck.positions[n].j] !== null || // if there is tile immediately above
+            wordOnDeck.positions[n].i < 14 && this.grid[wordOnDeck.positions[n].i + 1][wordOnDeck.positions[n].j] !== null) { //if there is a tile immediately below
+
+          // look for vertical hook word
+          var col = _.map(testGrid, function (e) { return e[wordOnDeck.positions[n].j] } );
+          var above =  _.take(col, wordOnDeck.positions[n].i + 1);
+          var hookFirst = {i: this.findStart(above), j: wordOnDeck.positions[n].j};
+          var below = _.takeRight(col, col.length - wordOnDeck.positions[n].i);
+          var hookLast = {i: this.findEnd(below), j: wordOnDeck.positions[n].j};
+
+          hookWords.push({first: hookFirst, last: hookLast, direction: 'v'}); // push hook word positions
+        }
+
+        break;
+
+      case 'v':
+      if (wordOnDeck.positions[n].j > 0 && this.grid[wordOnDeck.positions[n].i][wordOnDeck.positions[n].j - 1] !== null || // if there is tile immediately to the left
+          wordOnDeck.positions[n].j < 14 && this.grid[wordOnDeck.positions[n].i][wordOnDeck.positions[n].j + 1] !== null) { //if there is a tile immediately above
+
+
+          // look for horizontal hook word
+          var row = testGrid[wordOnDeck.positions[n].i]; // Same logic as in GetPrimary
+          var before = _.take(row, wordOnDeck.positions[n].j + 1);
+          var hookFirst = {i: wordOnDeck.positions[n].i , j: this.findStart(before)};
+          var after = _.takeRight(row, row.length - wordOnDeck.positions[n].j);
+          var hookLast = {i: wordOnDeck.positions[n].i, j: this.findEnd(after)};
+
+          hookWords.push({first: hookFirst, last: hookLast, direction: 'h'});
+      }
+
+      break;
+    }
+  }
+
+  return hookWords;
+
+};
+
+// Board has a method that returns the last non-null element of an array passed as input
+Board.prototype.findStart = function (array) {
+
+  var lastNull = _.lastIndexOf(array, null);
+  return lastNull == -1 ? 0 : lastNull + 1;
+
+};
+
+// Board has a method that returns the first non-null element of an array passed as input
+Board.prototype.findEnd = function (array) {
+
+  var firstNull = _.indexOf(array, null);
+  return firstNull == -1 ? array.length - 1 : firstNull -1 ;
+
+};
+
+
+
+
+// Board has a method that places the tiles on the board once it's been validated
+Board.prototype.place = function (wordOnDeck, player, turn) {
+
+  for (var n = 0; n < wordOnDeck.tiles.length; n++) {
+    wordOnDeck.tiles[n].placedBy = player.name;
+    wordOnDeck.tiles[n].turnPlaced = turn;
+    this.grid[wordOnDeck.positions[n].i][wordOnDeck.positions[n].j] = wordOnDeck.tiles[n];
+  }
 
 };
 
 
 // Board has a method that caculates the score of a given play
-Board.prototype.scorePlay = function (primaryFirst, primaryLast, wordDirection, turn) {
+Board.prototype.score = function (first, last, direction, turn) {
 
   var points = 0;
   var wordBonuses = [];
 
-  switch(wordDirection) {
+  switch(direction) {
 
   case 'h':
-    for (var j = primaryFirst.j; j <= primaryLast.j; j++) {
-      points += this.grid[primaryFirst.i][j].points * this.getLetterBonus( {i: primaryFirst.i, j: j} );
-      wordBonuses.push(this.getWordBonus( {i: primaryFirst.i, j: j} )); // fetches and stores potential word bonus
-      this.grid[primaryFirst.i][j].turnPlaced = turn; //validates tile placement
+    for (var j = first.j; j <= last.j; j++) {
+      points += this.grid[first.i][j].points * this.getLetterBonus( {i: first.i, j: j}, turn);
+      wordBonuses.push(this.getWordBonus( {i: first.i, j: j}, turn)); // fetches and stores potential word bonus
     }
   break;
 
   case 'v':
-    for (var i = primaryFirst.i; i <= primaryLast.i; i++) {
-      points += this.grid[i][primaryFirst.j].points * this.getLetterBonus( {i: i, j: primaryFirst.j} );
-      wordBonuses.push(this.getWordBonus( {i: i, j: primaryFirst.j} )); //fetches and stores potential word bonus
-      this.grid[i][primaryFirst.j].turnPlaced = turn; //validates tile placement
+    for (var i = first.i; i <= last.i; i++) {
+      points += this.grid[i][first.j].points * this.getLetterBonus( {i: i, j: first.j}, turn );
+      wordBonuses.push(this.getWordBonus( {i: i, j: first.j}, turn )); //fetches and stores potential word bonus
     }
   break;
 
   }
-
-
-
-  ////// ADD CROSS WORDS MODULE SOMEDAY /////
 
   points = points * _.reduce(wordBonuses, function(product, e) { return product * e }, 1);
   return points;
@@ -173,18 +242,18 @@ Board.prototype.scorePlay = function (primaryFirst, primaryLast, wordDirection, 
 
 
 // Board has a method that return letter bonus when eligible
-Board.prototype.getLetterBonus = function (position) {
+Board.prototype.getLetterBonus = function (position, turn) {
 
   // first branch : position corresponds to a letter bonus
   if (this.letterBonusGrid[position.i][position.j] !== null) {
 
     // if no tile has been placed return bonus multiplier
     if (this.grid[position.i][position.j] == null) {
-      return parseInt(this.letterBonusGrid[position.i][position.j]);
+      return parseInt(_.takeRight(this.letterBonusGrid[position.i][position.j], 1));
 
     // else if there is a tile, but it was just placed in this turn, also return bonus multiplier
-    } else if (this.grid[position.i][position.j].turnPlaced == null){
-      return parseInt(this.letterBonusGrid[position.i][position.j]);
+  } else if (this.grid[position.i][position.j].turnPlaced == turn){
+      return parseInt(_.takeRight(this.letterBonusGrid[position.i][position.j], 1));
 
     // if there is a tile but from a previous turn, return 1 as multiplier
     } else {
@@ -198,18 +267,18 @@ Board.prototype.getLetterBonus = function (position) {
 };
 
 //Board has a method that returns word bonus multiplier when eligible
-Board.prototype.getWordBonus = function (position) {
+Board.prototype.getWordBonus = function (position, turn) {
 
   // first branch : position corresponds to a letter bonus
   if (this.wordBonusGrid[position.i][position.j] !== null) {
 
     // if no tile has been placed return bonus multiplier
     if (this.grid[position.i][position.j] == null) {
-      return parseInt(this.wordBonusGrid[position.i][position.j]);
+      return parseInt(_.takeRight(this.wordBonusGrid[position.i][position.j],1));
 
     // else if there is a tile, but it was just placed in this turn, also return bonus multiplier
-    } else if (this.grid[position.i][position.j].turnPlaced == null){
-      return parseInt(this.wordBonusGrid[position.i][position.j]);
+  } else if (this.grid[position.i][position.j].turnPlaced == turn){
+      return parseInt(_.takeRight(this.wordBonusGrid[position.i][position.j], 1));
 
     // if there is a tile but from a previous turn, return 1 as multiplier
     } else {
@@ -223,25 +292,32 @@ Board.prototype.getWordBonus = function (position) {
 };
 
 
-// Board has method that returns true/false if word is contained in dictionary
-Board.prototype.isWord = function () {
-  return true;
-  //find API, maybe through:
-  //http://scrabblewordfinder.org/dictionary-checker
-  //or https://scrabble.hasbro.com/en-us/tools
-};
-
-
 // Board has methods that returns true/false if horizontal, vertical, or one line
 Board.prototype.isHorizontal = function (positions) {
-  // is true if all positions are on the same row, i.e. same x
+
+  // in case just one tile has been put down, check for tiles left or right from words already played
+  if (positions.length == 1) {
+    if (positions[0].j < 14 && this.grid[positions[0].i][positions[0].j + 1] !== null) return true; // tile to the right?
+    if (positions[0].j > 0 && this.grid[positions[0].i][positions[0].j - 1] !== null) return true; // tile to the left?
+  }
+
+
+  // otherwise true if all positions are on the same row, i.e. same x
   return _.reduce(positions, function(result, p){
     return result * (p.i == positions[0].i ? true : false);
   }, true);
 }
 
 Board.prototype.isVertical = function (positions) {
-  // is true if all positions are on the same row, i.e. same x
+
+  // in case just one tile has been put down, check for tiles left or right from words already played
+  if (positions.length == 1) {
+    if (positions[0].i < 14 && this.grid[positions[0].i + 1][positions[0].j] !== null) return true; // tile to the right?
+    if (positions[0].i > 0 && this.grid[positions[0].i - 1][positions[0].j] !== null) return true; // tile to the left?
+  }
+
+
+  // otherwise true if all positions are on the same row, i.e. same x
   return _.reduce(positions, function(result, p){
     return result * (p.j == positions[0].j ? true : false);
   }, true);
@@ -276,9 +352,51 @@ Board.prototype.toLetters = function () {
   return letters;
 };
 
-Board.prototype.isValidFirstPlay = function () {
-// code here to make sure includes centre square
+
+//Board has a method that returns turn in input position has at least
+//one adjacent tile (placed in a previous turn on the board)
+Board.prototype.hasAdjacentTiles = function (position) {
+
+  if (position.i > 0 && this.grid[position.i - 1][position.j] !== null) return true; // tile above?
+  if (position.j < 14 && this.grid[position.i][position.j + 1] !== null) return true; // tile to the right?
+  if (position.i < 14 && this.grid[position.i + 1][position.j] !== null) return true; // tile below?
+  if (position.j > 0 && this.grid[position.i][position.j - 1] !== null) return true; // tile to the left?
+
+  // return false if none of the above
+  return false;
+
 };
+
+
+//Board has method that returns a string of the letters from one position another
+Board.prototype.getWord = function (wordOnDeck, first, last, direction) {
+
+  var word = '';
+
+  // place words on a test grid with only letters
+  var tempGrid = this.toLetters();
+  for (var n = 0; n < wordOnDeck.positions.length; n++) {
+    tempGrid[wordOnDeck.positions[n].i][wordOnDeck.positions[n].j] = wordOnDeck.tiles[n].letter;
+  }
+
+  switch (direction) {
+    case 'h':
+      for (var j = first.j ; j <= last.j; j++) {
+        word += tempGrid[first.i][j];
+      }
+      break;
+
+    case 'v':
+      for (var i = first.i ; i <= last.i; i++) {
+        word += tempGrid[i][first.j];
+      }
+      break;
+  }
+
+  return word.toLowerCase();
+
+};
+
 
 
 // Board has a method that renders Board
@@ -290,18 +408,23 @@ Board.prototype.render = function () {
       for (var j = 0; j < this.grid[0].length; j++) {
 
         if (this.grid[i][j] == null) {
-          $('.square.square-' + i + '-' + j).html(''); // clears square if no tile is present
-          if (i == 7 && j == 7)$('.square.square-' + i + '-' + j).html('<i class="fa fa-star" aria-hidden="true"></i>');
           $('.square.square-' + i + '-' + j).removeClass('with-tile'); // removes 'with-tile' class
+          $('.square.square-' + i + '-' + j).children('.letter').html(''); // clears letter if no tile is present
+          $('.square.square-' + i + '-' + j).children('.points').html(''); // clears points if no tile is present
+          if (i == 7 && j == 7) {
+              $('.square.square-' + i + '-' + j).html('<i class="fa fa-star" aria-hidden="true"></i><span class="letter"></span><span class="points"></span></div>');
+          }
         }
 
         if (this.grid[i][j] == null && this.letterBonusGrid[i][j] !== null) {
           $('.square.square-' + i + '-' + j).addClass(this.letterBonusGrid[i][j]);
-          $('.square.square-' + i + '-' + j).html(this.letterBonusGrid[i][j].split('').reverse().join('').toUpperCase());
+          $('.square.square-' + i + '-' + j + ' .bonus').remove();
+          $('.square.square-' + i + '-' + j + ' .letter').before('<span class="bonus">' + this.letterBonusGrid[i][j].split('').reverse().join('').toUpperCase() + '<span class="bonus">');
 
-        } else if (this.grid[i][j] == null && this.wordBonusGrid[i][j] !== null && this.wordBonusGrid[i][j] !== "*") {
+        } else if (this.grid[i][j] == null && this.wordBonusGrid[i][j] !== null && this.wordBonusGrid[i][j] !== "*w2") {
+          $('.square.square-' + i + '-' + j + ' .bonus').remove();
           $('.square.square-' + i + '-' + j).addClass(this.wordBonusGrid[i][j]);
-          $('.square.square-' + i + '-' + j).html(this.wordBonusGrid[i][j].split('').reverse().join('').toUpperCase());
+          $('.square.square-' + i + '-' + j + ' .letter').before('<span class="bonus">' + this.wordBonusGrid[i][j].split('').reverse().join('').toUpperCase() + '<span class="bonus">');
         }
 
       }
