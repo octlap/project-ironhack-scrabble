@@ -9,7 +9,8 @@ function checkWord(word) {
     },
     error: function (err) {
       console.log(err);
-    }
+    },
+    crossDomain: true
   });
 
   return parseInt($(result.responseXML).find('scrabble').html());
