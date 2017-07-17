@@ -150,7 +150,7 @@ Board.prototype.getHookWords = function (wordOnDeck) {
           var above =  _.take(col, wordOnDeck.positions[n].i + 1);
           var hookFirst = {i: this.findStart(above), j: wordOnDeck.positions[n].j};
           var below = _.takeRight(col, col.length - wordOnDeck.positions[n].i);
-          var hookLast = {i: this.findEnd(below), j: wordOnDeck.positions[n].j};
+          var hookLast = {i: this.findEnd(below) + wordOnDeck.positions[n].i, j: wordOnDeck.positions[n].j};
 
           hookWords.push({first: hookFirst, last: hookLast, direction: 'v'}); // push hook word positions
         }
@@ -167,7 +167,7 @@ Board.prototype.getHookWords = function (wordOnDeck) {
           var before = _.take(row, wordOnDeck.positions[n].j + 1);
           var hookFirst = {i: wordOnDeck.positions[n].i , j: this.findStart(before)};
           var after = _.takeRight(row, row.length - wordOnDeck.positions[n].j);
-          var hookLast = {i: wordOnDeck.positions[n].i, j: this.findEnd(after)};
+          var hookLast = {i: wordOnDeck.positions[n].i, j: this.findEnd(after) + wordOnDeck.positions[n].j};
 
           hookWords.push({first: hookFirst, last: hookLast, direction: 'h'});
       }

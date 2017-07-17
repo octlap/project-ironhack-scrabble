@@ -1,4 +1,3 @@
-
 //On load, hide certain items
 $('#user-input').hide(); // hide user input, score-box and controls on first render
 $('.score-box').hide(); $('.player-name').hide();
@@ -64,7 +63,7 @@ Game.prototype.runGame = function () {
     break;
 
     case 'switching-turns':
-    setTimeout(this.switchTurns(), 500)
+    setTimeout(this.switchTurns(), 500);
     break;
 
     case 'awaiting-input':
@@ -289,7 +288,7 @@ Game.prototype.receiveInput = function () {
   // ==> updates game status to verify input, goes to run game
   $('.submit.player-' +  this.players[this.whoseTurn].n).click( function(e) {
 
-    if(that.status == 'awaiting-input') {
+    if(that.status == 'awaiting-input' && that.players[that.whoseTurn].tray.length < 7) {
       that.status = 'validating-play';
       that.runGame();
     }
@@ -430,7 +429,7 @@ Game.prototype.validatePlay = function () {
     // finally test validity of each word
     var wordValidityTests = [];
     for (var n = 0; n < wordsToTest.length; n++) {
-      wordValidityTests.push(this.isWord(wordsToTest[n]));
+      wordValidityTests.push(checkWord(wordsToTest[n]));
     }
 
     var result = _.reduce(wordValidityTests, function(result, e) {
@@ -440,7 +439,7 @@ Game.prototype.validatePlay = function () {
     conditionsToBeMet.push(result);
 
     //////////////////////////////////////////////////////////////////////////////////
-    // Check if all conditions have been met thus far, otherwise return position error
+    // Check if all conditions have been met thus far, otherwise return word error
     if ( !_.reduce(conditionsToBeMet, function(product, e) {return product * e}, true) ) {
 
       this.status = 'awaiting-input';
@@ -450,6 +449,8 @@ Game.prototype.validatePlay = function () {
         that.runGame();
       }, 1500);
     } else {
+
+
       // 3) IF ALL THE WAY HERE, SCORE WORDS
       // first place word on deck
       this.board.place(this.wordOnDeck, this.players[this.whoseTurn],  this.turn);
@@ -457,18 +458,26 @@ Game.prototype.validatePlay = function () {
 
       // then score main word + potential hookWords
       var mainWordPoints = this.board.score(this.wordOnDeck.mainFirst, this.wordOnDeck.mainLast, this.wordOnDeck.direction, this.turn);
+      var message = wordsToTest[0].toUpperCase() + ': ' + mainWordPoints + " points"
+
+      var points = 0;
       var hookWordPoints = 0;
       for (var n = 0; n < this.wordOnDeck.hookWords.length; n++) {
-        hookWordPoints += this.board.score(this.wordOnDeck.hookWords[n].first, this.wordOnDeck.hookWords[n].last, this.wordOnDeck.hookWords[n].direction, this.turn)
+        points = this.board.score(this.wordOnDeck.hookWords[n].first, this.wordOnDeck.hookWords[n].last, this.wordOnDeck.hookWords[n].direction, this.turn);
+        message += '<br>' + wordsToTest[n+1].toUpperCase() + ': ' + points + ' points'
+        hookWordPoints += points;
       }
 
       // Sum total score including Scrabble Bonus
       var scrabbleBonus = (this.wordOnDeck.tiles.length == 7) ? 50 : 0;
-      var totalPoints = mainWordPoints + hookWordPoints + scrabbleBonus
+      var totalPoints = mainWordPoints + hookWordPoints + scrabbleBonus;
 
-      setTimeout (function() {
-        that.players[that.whoseTurn].updateScore(totalPoints, that.wordOnDeck.tiles.length);
-        $('#message').html(that.players[that.whoseTurn].name + ' scores ' + totalPoints + ' points!');
+      that.players[that.whoseTurn].updateScore(totalPoints, that.wordOnDeck.tiles.length);
+
+
+      $('#message').html(that.players[that.whoseTurn].name + ' scores ' + totalPoints + ' points<br>' + message);
+
+      var timeoutId = setTimeout (function() {
         that.status = 'switching-turns';
         that.runGame();
       }, 1000);
