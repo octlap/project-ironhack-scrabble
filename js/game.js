@@ -75,9 +75,11 @@ Game.prototype.runGame = function () {
     setTimeout(this.validatePlay(), 500);
     break;
 
+    case 'end-game':
+    this.endGame();
+    break;
+
   }
-
-
 
 
 };
@@ -148,14 +150,17 @@ Game.prototype.beginGame = function () {
 //Game has a function to distribute tiles to a player ( n= 1 or 2)
 Game.prototype.distributeTiles = function (thisPlayer) {
 
-  var i = _.findIndex(this.players, thisPlayer);
+  if (this.bag.tiles.length > 0) {
 
-  // load as many tiles from bag as there are empty spaces in the players tray
-  var tileNum = 7 - this.players[i].tray.length;
-  this.players[i].loadTiles( this.bag.drawTiles(tileNum) );
+    var i = _.findIndex(this.players, thisPlayer);
 
-  // render player with a slight delay
-  setTimeout(this.players[i].renderTray(), 300);
+    // load as many tiles from bag as there are empty spaces in the players tray
+    var tileNum = 7 - this.players[i].tray.length;
+    this.players[i].loadTiles( this.bag.drawTiles(tileNum) );
+
+    // render player with a slight delay
+    setTimeout(this.players[i].renderTray(), 300);
+  }
 
 };
 
@@ -183,7 +188,7 @@ Game.prototype.switchTurns = function () {
     // general case
   } else {
     this.turn += 1; // increment turn
-    this.distributeTiles(this.players[this.whoseTurn]); // distribute tiles to player who just playerd
+    this.distributeTiles(this.players[this.whoseTurn]); // distribute tiles to player who just played
 
     // reset selected tile
     this.selectedTile = null;
@@ -197,10 +202,16 @@ Game.prototype.switchTurns = function () {
       hookWords: null
     };
 
+    // Check if game should be finished, i.e. no more tiles in bag and empty tray
+    if (this.bag.tiles.length == 0 && this.players[this.whoseTurn].tray.length == 0) {
+      that.status = 'end-game';
+      that.runGame();
+      return;
+    }
+
     // Switch turns
     $('.controls.player-' + this.players[this.whoseTurn].n ).hide();
     this.whoseTurn = this.whoseTurn == 0 ? 1:0;
-
 
     // Go to collect input from next player
     setTimeout(function() {
@@ -490,10 +501,19 @@ Game.prototype.validatePlay = function () {
 
 };
 
-// Board has method that returns true/false if word is contained in dictionary
-Game.prototype.isWord = function () {
-  return true;
-  //find API, maybe through:
-  //http://scrabblewordfinder.org/dictionary-checker
-  //or https://scrabble.hasbro.com/en-us/tools
+// Board has method that ends the game
+Game.prototype.endGame = function () {
+
+  // Give final points from tile left in tray
+  let leftOver = this.whoseTurn == 0 ? 1:0;
+  let finalPoints = this.players[leftOver].tray.reduce( (sum, e) => {
+    return sum + e;
+  }, 0);
+  this.players[whoseTurn].score += finalPoints;
+
+  let winner = this.players[this.whoseTurn].score > this.players[leftOver] ? this.whoseTurn : leftOver;
+  that.players[winner].renderStats();
+
+  $('#message').html(that.players[winner].name + ' wins with ' + this.players[winner].score + ' points!');
+
 };

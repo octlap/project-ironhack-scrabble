@@ -31,7 +31,7 @@ function Bag(language) {
         {letter: 'A', points: 1, placedBy: '', turnPlaced: null},
         {letter: 'A', points: 1, placedBy: '', turnPlaced: null},
 
-        // 9 I x 1 points
+        // 9 I x 1 point
         {letter: 'I', points: 1, placedBy: '', turnPlaced: null},
         {letter: 'I', points: 1, placedBy: '', turnPlaced: null},
         {letter: 'I', points: 1, placedBy: '', turnPlaced: null},
